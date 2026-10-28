@@ -54,4 +54,4 @@ Config_Bag / Config_Furniture **内存表直写工具**：表访问、进程内�
 
 ## 在镜像仓中的角色
 
-GitHub 组织 `survivallog-mods` 的 12 个 mod 仓各携带一份 ModShared 快照（`tools\sync_repos.ps1` 从总仓 HEAD 同步）。本目录是唯一改动源；镜像仓内的副本是生成物，勿手改。
+GitHub 组织 `survivallog-mods` 的 12 个 mod 仓各携带一份 ModShared 快照（suite `tools\push_modshared.ps1` 从中枢仓 suite\ModShared 单向下行推送，有差异才提交）。本目录（suite\ModShared）是唯一改动源；镜像仓内的副本是生成物，勿手改。
