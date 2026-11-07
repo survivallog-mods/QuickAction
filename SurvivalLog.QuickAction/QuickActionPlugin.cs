@@ -25,7 +25,7 @@ namespace SurvivalLog.QuickAction;
 ///   （实测黑名单 74 条：修理/加固本体系10、生吃冷冻32、跳舞/游戏机5、锻炼/发电3、
 ///   Social 全部5、Other 内部行为18。）
 ///   另有**表外结算收益名单 OutsideGainIds**（效果表全 0/仅 Start 消耗但收益∝时长、
-///   结算在 Effect 表之外，周期守卫看不见——如 1916 做俯卧撑提速后心态收益归零），
+///   结算在 Effect 表之外——如 1916 做俯卧撑提速后心态收益归零），
 ///   点名拦截永不改动。
 /// - Other(8)=官方大杂烩：真交互与内部行为混居。引用轴判定：动作被
 ///   Config_FurnitureFunc.ActionIds（家具按钮）或 Config_Item.UseAction（物品）引用
@@ -40,13 +40,17 @@ namespace SurvivalLog.QuickAction;
 ///   全部回写原值并停写；下次启动不创建 Ticker（零日志零改写）。cfg 写入热生效。
 /// - 已实证无周期收益（可安全提速）：看书 100003xxx/100000004、空调吹风 1915（End 型
 ///   士气+5/健康+5）、上厕所 9075（效果全 0，收益走内急解除）、浇水 1615（植物状态另算）。
+/// - v1.8.0（2026-11-07，ModCenter 面板配套）：每会话表就绪后写 QuickActionCatalog.txt
+///   （ID|名称|分类|原耗时毫秒，守卫全过滤，分类 1..5 + 6野外与其他[引用轴漏网的 Other
+///   玩家动作，如野外探险 探索中109]）——面板「动作覆盖」下拉显示动作名，玩家不再需要懂
+///   ID。本文件是"哪些动作可加速"口径的单源，ModCenter 只读不复算。
 /// </summary>
 [BepInPlugin(Guid, Name, Version)]
 public sealed class QuickActionPlugin : BasePlugin
 {
     public const string Guid = "com.local.survivallog.quickaction";
     public const string Name = "QuickAction";
-    public const string Version = "1.7.0";
+    public const string Version = "1.8.0";
 
     /// <summary>探索时钟倍速（Config_Chapter 实测 120；游戏更新后体感异常再改此处重编译）。</summary>
     internal const int Scale = 120;
@@ -216,6 +220,7 @@ internal sealed class QuickTicker : MonoBehaviour
     private float _check;
     private bool _announced;
     private bool _listWritten;
+    private bool _catWritten; // QuickActionCatalog.txt（面板下拉数据源）每会话写一次
     // General.Enabled 门：本轮会话是否已按配置落笔过（false 化时据此触发一次性还原）
     private bool _applied;
 
@@ -249,6 +254,12 @@ internal sealed class QuickTicker : MonoBehaviour
             if (cm._Config_Item_Dict == null || cm._Config_Item_Dict.Count == 0) return;
         }
         catch { return; }
+
+        if (!_catWritten)
+        {
+            _catWritten = true;
+            WriteCatalog(dict, cm, System.IO.Path.Combine(Paths.BepInExRootPath, "QuickActionCatalog.txt"));
+        }
 
         if (!_listWritten)
         {
@@ -675,5 +686,64 @@ internal sealed class QuickTicker : MonoBehaviour
             QuickActionPlugin.Log.LogInfo($"[QuickAction] ActionList.txt 已生成（{rows.Count} 条，v2 含类型列）");
         }
         catch (Exception e) { QuickActionPlugin.Log.LogWarning("[QuickAction] ActionList 写入失败: " + e.Message); }
+    }
+
+    /// <summary>
+    /// QuickActionCatalog.txt：面板「动作覆盖」下拉数据源（ModCenter v2.1.1+ 消费）。
+    /// 行格式 ID|名称|分类|原耗时毫秒，分类 1物品使用 2家具功能 3房屋维护 4杂项交互 5娱乐锻炼
+    /// 6野外与其他（引用轴漏网的 Other 玩家动作，如野外探险 探索中109）。
+    /// 口径=Apply 覆盖分支的全部前置守卫 + 五分类 ∪ 第 6 组（表外结算收益/周期正收益/
+    /// 纯消耗拦Outside8/瞬时哨兵/禁改类 Rest·Social/无名行全剔除）——列进来的动作，覆盖一定
+    /// 生效，玩家可懂。每会话表就绪后写一次（先于首次 Apply，During 还是官方原值）；守卫口径
+    /// 随本 mod 迭代由本文件单源产出，ModCenter 只读不复算。总开关关闭的会话不写（面板读到
+    /// 旧文件照常展示；首次运行就关机的极端场景无文件，面板回退 ID 手输框）。
+    /// </summary>
+    private static void WriteCatalog(
+        Il2CppSystem.Collections.Generic.Dictionary<int, GameCore.HotUpdate.Config_Action> dict,
+        GameCore.HotUpdate.ConfigManager cm, string path)
+    {
+        try
+        {
+            var (positiveEffects, drainEffects) = BuildIntervalEffects(cm);
+            var referenced = BuildReferenced(cm);
+            var rows = new List<(int cat, int id, string name, int ms)>();
+            foreach (var kv in dict)
+            {
+                var a = kv.Value;
+                if (a == null) continue;
+                float orig = 0f; string n = null; int t = 0;
+                try { orig = a.During; n = a.Name_Local ?? a.Name; t = a.ActionType; } catch { }
+                if (string.IsNullOrWhiteSpace(n) || n == "?") continue;
+                if (orig <= 0f) continue;                              // 瞬时哨兵（同 Apply）
+                if (OutsideGainIds.Contains(kv.Key)) continue;         // 表外结算收益守卫
+                bool fixedGain = FixedGainIds.Contains(kv.Key);
+                int ecid = 0;
+                try { ecid = a.EffectConfigID; } catch { }
+                if (!fixedGain && ecid != 0 && positiveEffects.Contains(ecid)) continue; // 周期正收益守卫
+                if (!fixedGain && ecid != 0 && drainEffects.Contains(ecid)
+                    && !(t == 8 && (referenced.Contains(kv.Key) || BtInteractIds.Contains(kv.Key))))
+                    continue;                                          // 纯消耗型守卫（仅 Other 可触发放行，同 Apply）
+                int cat = CategoryOf(kv.Key, t, referenced);
+                if (cat == 0)
+                {
+                    // 引用轴漏网的玩家动作单列第 6 组「野外与其他」（2026-11-07 作者令：野外探险
+                    // 必须在列——如 冒险出门 探索中109 / 搜索1506 / 瞭望114 / 清点物资115，由
+                    // 探索系统 BT 触发、不被家具/物品表引用，五分类结构性收不到）。Overrides
+                    // 兜底分支先于分类判定，对它们照常生效，只是吃不到分类开关、只能面板逐条调。
+                    // 同桶也会进内部行为（呕吐/行为N/测试）——名字可见玩家自辨，不触发无副作用。
+                    if (t != 8) continue; // 其余 cat=0：Rest/Social 禁改、类型 7/9/11 系统动作
+                    cat = 6;
+                }
+                rows.Add((cat, kv.Key, n, (int)Math.Round(orig / QuickActionPlugin.Scale * 1000f)));
+            }
+            // 分类组内按原耗时降序（玩家常调的长动作排前），同耗时按 ID 稳定排序
+            rows.Sort((x, y) => x.cat != y.cat ? x.cat.CompareTo(y.cat)
+                : y.ms != x.ms ? y.ms.CompareTo(x.ms) : x.id.CompareTo(y.id));
+            using var w = new System.IO.StreamWriter(path, false, new UTF8Encoding(false));
+            w.WriteLine("== QuickAction 动作目录（ID|名称|分类|原耗时毫秒）：ModCenter 面板「动作覆盖」下拉数据源，只列覆盖会生效的动作。分类 1物品使用 2家具功能 3房屋维护 4杂项交互 5娱乐锻炼 6野外与其他。删掉本文件下次启动会重新生成 ==");
+            foreach (var r in rows) w.WriteLine($"{r.id}|{r.name}|{r.cat}|{r.ms}");
+            QuickActionPlugin.Log.LogInfo($"[QuickAction] QuickActionCatalog.txt 已生成（{rows.Count} 条，分类 1..6）");
+        }
+        catch (Exception e) { QuickActionPlugin.Log.LogWarning("[QuickAction] Catalog 写入失败: " + e.Message); }
     }
 }

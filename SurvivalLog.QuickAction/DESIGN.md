@@ -143,7 +143,7 @@ mod `ReadBoot()` 保留仅为兼容旧安装器（找不到 boot.ini 走内置�
 | 文件 | 职责 |
 |---|---|
 | `QuickActionPlugin.cs` | 入口：ReadBoot 默认值 → 五分类 Bind + Overrides；cfg 遗留清理（[动作·*]/[整类设置]）；注入 Ticker |
-| `QuickTicker`（同文件） | 5 秒轮询：BuildIntervalEffects + BuildReferenced + Apply() 全表扫描；ActionList.txt / QuickActionTrace.txt |
+| `QuickTicker`（同文件） | 5 秒轮询：BuildIntervalEffects + BuildReferenced + Apply() 全表扫描；ActionList.txt / QuickActionCatalog.txt / QuickActionTrace.txt |
 
 （v1.x 的 ActionCatalog.cs 已删除，77 逐项被分类收编。）
 
@@ -152,6 +152,7 @@ mod `ReadBoot()` 保留仅为兼容旧安装器（找不到 boot.ini 走内置�
 | 文件 | 说明 |
 |---|---|
 | ActionList.txt | 全表（ID\|名称\|**Type**\|原 During\|真实秒），按耗时降序；检测到 v1 旧格式（无 Type 列）自动重写 |
+| QuickActionCatalog.txt | v1.8.0：面板「动作覆盖」下拉数据源（ID\|名称\|**分类 1..6**\|原耗时毫秒），ModCenter 消费。口径=Apply 全部前置守卫 + 五分类 ∪ 第 6 组「野外与其他」（引用轴漏网的 Other 玩家动作，如野外探险 探索中109）——不可提速名单全剔除；每会话表就绪后写一次（先于首次 Apply，先于任何改写） |
 | QuickActionTrace.txt | 首次生效：各分类改写数 + 守卫跳过数（周期/禁改/内部/瞬时）+ 明细 |
 
 v2.0.0 实测（全开）：物品×2746 家具×733 维护×69 杂项×67 娱乐×167；

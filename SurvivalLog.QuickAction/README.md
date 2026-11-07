@@ -21,7 +21,7 @@
 - 不改存档 / 不改游戏文件 / 删 dll 即还原
 - 改写只发生在内存里的动作配置表上，不落存档：删掉 dll 后所有动作耗时回到原版
 - 想临时关掉：把对应分类设 0、清空 Overrides，或把 General.Enabled 设为 false，都会当场恢复官方原值
-- 首次生效会在 BepInEx 目录生成两个说明文件：ActionList.txt（全部动作的 ID/名称/耗时清单，用 Overrides 时可查 ID）、QuickActionTrace.txt（本次改写明细），可以打开看、也可以删
+- 首次生效会在 BepInEx 目录生成三个说明文件：ActionList.txt（全部动作的 ID/名称/耗时清单，用 Overrides 时可查 ID）、QuickActionCatalog.txt（v1.8.0：可加速动作目录，ModCenter 面板「动作覆盖」下拉列表的数据源）、QuickActionTrace.txt（本次改写明细），可以打开看、也可以删
 
 ## 四、安装与卸载
 
