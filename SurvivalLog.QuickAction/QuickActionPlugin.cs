@@ -689,7 +689,7 @@ internal sealed class QuickTicker : MonoBehaviour
     }
 
     /// <summary>
-    /// QuickActionCatalog.txt：面板「动作覆盖」下拉数据源（ModCenter v2.1.1+ 消费）。
+    /// QuickActionCatalog.txt：面板「动作覆盖」下拉数据源（ModCenter v2.0.7+ 消费）。
     /// 行格式 ID|名称|分类|原耗时毫秒，分类 1物品使用 2家具功能 3房屋维护 4杂项交互 5娱乐锻炼
     /// 6野外与其他（引用轴漏网的 Other 玩家动作，如野外探险 探索中109）。
     /// 口径=Apply 覆盖分支的全部前置守卫 + 五分类 ∪ 第 6 组（表外结算收益/周期正收益/
