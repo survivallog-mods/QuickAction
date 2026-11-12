@@ -76,14 +76,37 @@ Compress-Archive -Path (Join-Path $pkg '*') -DestinationPath $zip -CompressionLe
 $md5 = (Get-FileHash $zip -Algorithm MD5).Hash.ToLower()
 $gk = Get-ChildItem (Join-Path $root 'gamekb') -Directory | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}_\d+$' } | Sort-Object Name -Descending | Select-Object -First 1
 if (-not $gk) { throw 'no gamekb snapshot under <root>\gamekb' }
-$uj = @{ mod = $modName; version = $ver; asset = (Split-Path $zip -Leaf); md5 = $md5; gamekb = $gk.Name } | ConvertTo-Json
+# v2.2.0：CHANGELOG 本版节 = 发版说明唯一源头——同一份进 update.json.notes、GitHub release
+# body、versions.json 台账行。抽取原 ---- 6 ---- 的正则上移（6 节继续用 $notes）。
+$notes = [regex]::Match($logTxt, ('(?s)##\s*v' + [regex]::Escape($ver) + '\b.*?(?=\r?\n(---|#{1,2}\s)|\z)')).Value.Trim()
+$uj = @{ mod = $modName; version = $ver; asset = (Split-Path $zip -Leaf); md5 = $md5; gamekb = $gk.Name; notes = $notes } | ConvertTo-Json
 $updatePath = Join-Path $env:TEMP 'update.json'
 [IO.File]::WriteAllText($updatePath, $uj, (New-Object Text.UTF8Encoding($false)))
 Write-Host $uj
 if ($PackageOnly) { Write-Host ('package-only done: ' + $zip); exit 0 }
 
+# v2.2.0 版本台账：gh release create **之前**拉桶内旧 versions.json → 顶部 unshift 本版行。
+# 失败语义：HTTP 404 = 首版起建；其余失败（网络/5xx）throw 中止发版——一次网络抖动静默把
+# 全史台账重置成单行是本文件最贵的坏法，此时 GitHub release 未发、无半态。
+# 同版本行先剔除（删 release 补发场景防双行）。
+$cosBase = 'https://survival-log-1302318873.cos.ap-shanghai.myqcloud.com'
+$versPath = Join-Path $env:TEMP ('versions_' + $modName + '.json')
+$vrows = New-Object System.Collections.Generic.List[object]
+try {
+    $vr = Invoke-WebRequest -UseBasicParsing -Uri ($cosBase + '/mods/' + $modName + '/versions.json')
+    $vtxt = $vr.Content; if ($vtxt -is [byte[]]) { $vtxt = [Text.Encoding]::UTF8.GetString($vtxt) }
+    foreach ($r in @(($vtxt | ConvertFrom-Json).versions)) { if ($r.version -ne $ver) { $vrows.Add($r) } }
+} catch {
+    $code = 0
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $code = [int]$_.Exception.Response.StatusCode }
+    if ($code -ne 404) { throw ('拉取桶内版本台账失败（非404，中止防静默重置）: ' + $_.Exception.Message) }
+    # 404 = 首版起建
+}
+$vrows.Insert(0, [ordered]@{ version = $ver; date = (Get-Date -Format 'yyyy-MM-dd'); notes = $notes; asset = (Split-Path $zip -Leaf); md5 = $md5; gamekb = $gk.Name })
+[IO.File]::WriteAllText($versPath, ([ordered]@{ generatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); mod = $modName; versions = $vrows } | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+
 # ---- 6. release notes + tag + GitHub release ----
-$notes = [regex]::Match($logTxt, ('(?s)##\s*v' + [regex]::Escape($ver) + '\b.*?(?=\r?\n(---|#{1,2}\s)|\z)')).Value.Trim()
+# $notes 已在 ---- 5 ---- 上移抽取（v2.2.0：说明进 update.json/台账）
 $notesFile = Join-Path $env:TEMP ('relnotes_' + $modName + '_v' + $ver + '.md')
 [IO.File]::WriteAllText($notesFile, $notes, (New-Object Text.UTF8Encoding($false)))
 & $ghExe release create ('v' + $ver) --repo ($org + '/' + $modName) --title ('v' + $ver) --notes-file $notesFile $zip $updatePath
@@ -93,10 +116,10 @@ if ($LASTEXITCODE -ne 0) { throw ('gh release create failed: ' + $modName) }
 # 失败不炸发版（GitHub 回退源已就绪，玩家暂见旧版），醒目提示补救；zip 先传、update.json 后传
 # ——中途失败时桶内 update.json 仍旧版，版本与 zip 保持一致不出现 404 下载。
 try {
-    & (Join-Path $root 'suite\tools\sync-cos.ps1') -Mod $modName -Zip $zip -UpdateJson $updatePath
+    & (Join-Path $root 'suite\tools\sync-cos.ps1') -Mod $modName -Zip $zip -UpdateJson $updatePath -Versions $versPath
 } catch {
     Write-Warning ('COS 上传失败（GitHub 已发版成功，玩家暂见旧版）：' + $_.Exception.Message)
-    Write-Warning ('补救：suite\tools\sync-cos.ps1 -Mod ' + $modName + ' -Zip ' + $zip + ' -UpdateJson ' + $updatePath)
+    Write-Warning ('补救：suite\tools\sync-cos.ps1 -Mod ' + $modName + ' -Zip ' + $zip + ' -UpdateJson ' + $updatePath + ' -Versions ' + $versPath)
     Write-Warning ('补传后记得重跑套件根 publish-index.ps1 刷新聚合索引')
 }
 Write-Host ('=== ' + $modName + ' v' + $ver + ' released ===')
