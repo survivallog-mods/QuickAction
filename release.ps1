@@ -88,5 +88,16 @@ $notesFile = Join-Path $env:TEMP ('relnotes_' + $modName + '_v' + $ver + '.md')
 [IO.File]::WriteAllText($notesFile, $notes, (New-Object Text.UTF8Encoding($false)))
 & $ghExe release create ('v' + $ver) --repo ($org + '/' + $modName) --title ('v' + $ver) --notes-file $notesFile $zip $updatePath
 if ($LASTEXITCODE -ne 0) { throw ('gh release create failed: ' + $modName) }
+
+# ---- 7. COS 主源双发（v2.1.0：zip + update.json → 桶内 mods/<mod>/，国内直连下载）----
+# 失败不炸发版（GitHub 回退源已就绪，玩家暂见旧版），醒目提示补救；zip 先传、update.json 后传
+# ——中途失败时桶内 update.json 仍旧版，版本与 zip 保持一致不出现 404 下载。
+try {
+    & (Join-Path $root 'suite\tools\sync-cos.ps1') -Mod $modName -Zip $zip -UpdateJson $updatePath
+} catch {
+    Write-Warning ('COS 上传失败（GitHub 已发版成功，玩家暂见旧版）：' + $_.Exception.Message)
+    Write-Warning ('补救：suite\tools\sync-cos.ps1 -Mod ' + $modName + ' -Zip ' + $zip + ' -UpdateJson ' + $updatePath)
+    Write-Warning ('补传后记得重跑套件根 publish-index.ps1 刷新聚合索引')
+}
 Write-Host ('=== ' + $modName + ' v' + $ver + ' released ===')
 Write-Host 'Nexus Mods stays a separate author-confirmed step (docs/08). Not automated.'
