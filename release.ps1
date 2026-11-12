@@ -95,7 +95,7 @@ $vrows = New-Object System.Collections.Generic.List[object]
 try {
     $vr = Invoke-WebRequest -UseBasicParsing -Uri ($cosBase + '/mods/' + $modName + '/versions.json')
     $vtxt = $vr.Content; if ($vtxt -is [byte[]]) { $vtxt = [Text.Encoding]::UTF8.GetString($vtxt) }
-    foreach ($r in @(($vtxt | ConvertFrom-Json).versions)) { if ($r.version -ne $ver) { $vrows.Add($r) } }
+    foreach ($r in @(($vtxt | ConvertFrom-Json).versions)) { if ($null -eq $r) { continue }; if ($r.version -ne $ver) { $vrows.Add($r) } }
 } catch {
     $code = 0
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $code = [int]$_.Exception.Response.StatusCode }
