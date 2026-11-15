@@ -1,0 +1,99 @@
+{
+  "mcSpec": 2,
+  "id": "com.local.survivallog.quickaction",
+  "display": "动作加速",
+  "en": "QuickAction",
+  "summary": "全游戏动作耗时按分类统一加速（毫秒，0=官方原值）；单个动作可加覆盖单独调。",
+  "usage": {
+    "intro": "吃饭、拆包裹、看书这类日常动作统一提速到 0.5 秒（可调），按游戏官方分类分组，各有一个毫秒开关。",
+    "sections": [
+      {
+        "heading": "怎么用",
+        "bullets": [
+          "装好即生效，无需设置；改完当拍生效，无需重启",
+          "五大类（物品使用 / 家具功能 / 房屋维护 / 杂项交互 / 娱乐锻炼）耗时各自可调，0 = 该类恢复官方原值",
+          "没被分类覆盖的动作用「动作覆盖」下拉单独调速：选类型 → 搜动作 → 点一下即添加（默认 1000ms，滑条可调）"
+        ]
+      },
+      {
+        "heading": "提示",
+        "bullets": [
+          "睡觉与社交动作不动（防误设）；收益随耗时增长的动作（跳舞 / 锻炼 / 手动发电等）自动保护不提速，覆盖清单也动不了它们",
+          "全部动作名单在 BepInEx\\\\ActionList.txt（含 ID 与原耗时，删了下次启动会重新生成）",
+          "只减不增：原本就快于目标值的动作不会被放慢"
+        ]
+      }
+    ]
+  },
+  "groups": [
+    {
+      "title": "分类耗时（毫秒，0=官方原值）",
+      "order": 1,
+      "items": [
+        {
+          "key": "分类修改:物品使用Ms",
+          "label": "物品使用",
+          "badge": "now",
+          "type": "int",
+          "def": 500,
+          "min": 0,
+          "max": 5000,
+          "step": 50,
+          "order": 10
+        },
+        {
+          "key": "分类修改:家具功能Ms",
+          "label": "家具功能",
+          "badge": "now",
+          "type": "int",
+          "def": 500,
+          "min": 0,
+          "max": 5000,
+          "step": 50,
+          "order": 20
+        },
+        {
+          "key": "分类修改:房屋维护Ms",
+          "label": "房屋维护",
+          "badge": "now",
+          "type": "int",
+          "def": 500,
+          "min": 0,
+          "max": 5000,
+          "step": 50,
+          "order": 30
+        },
+        {
+          "key": "分类修改:杂项交互Ms",
+          "label": "杂项交互",
+          "badge": "now",
+          "type": "int",
+          "def": 500,
+          "min": 0,
+          "max": 5000,
+          "step": 50,
+          "order": 40
+        },
+        {
+          "key": "分类修改:娱乐锻炼Ms",
+          "label": "娱乐锻炼",
+          "badge": "now",
+          "type": "int",
+          "def": 500,
+          "min": 0,
+          "max": 5000,
+          "step": 50,
+          "order": 50
+        }
+      ]
+    }
+  ],
+  "lists": [
+    {
+      "kind": "actionOverride",
+      "key": "其他:Overrides",
+      "label": "动作覆盖清单",
+      "badge": "now"
+    }
+  ]
+}

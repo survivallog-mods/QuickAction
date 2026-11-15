@@ -49,4 +49,9 @@
     <Compile Include="../ModShared/WelcomeTip.cs" />
   </ItemGroup>
 
+
+  <!-- ModCenter mcSpec 2 配置清单（内嵌资源） -->
+  <ItemGroup>
+    <EmbeddedResource Include="modcenter.json" />
+  </ItemGroup>
 </Project>
