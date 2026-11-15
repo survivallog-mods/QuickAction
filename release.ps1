@@ -94,7 +94,8 @@ $versPath = Join-Path $env:TEMP ('versions_' + $modName + '.json')
 $vrows = New-Object System.Collections.Generic.List[object]
 try {
     $vr = Invoke-WebRequest -UseBasicParsing -Uri ($cosBase + '/mods/' + $modName + '/versions.json')
-    $vtxt = $vr.Content; if ($vtxt -is [byte[]]) { $vtxt = [Text.Encoding]::UTF8.GetString($vtxt) }
+    # PS5.1 无 charset 响应按 ISO-8859-1 解 .Content（2026-11-15 实证 mojibake）——字节读 + UTF-8
+    $vtxt = [Text.Encoding]::UTF8.GetString($vr.RawContentStream.ToArray())
     foreach ($r in @(($vtxt | ConvertFrom-Json).versions)) { if ($null -eq $r) { continue }; if ($r.version -ne $ver) { $vrows.Add($r) } }
 } catch {
     $code = 0
