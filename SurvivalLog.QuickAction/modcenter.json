@@ -1,5 +1,6 @@
 {
   "mcSpec": 2,
+  "suite": true,
   "id": "com.local.survivallog.quickaction",
   "display": "动作加速",
   "en": "QuickAction",
